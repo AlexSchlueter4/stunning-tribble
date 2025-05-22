@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flächenberechnung Memory</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 Karten pro Reihe */
+            gap: 10px;
+            width: 90%;
+            max-width: 600px; /* Maximale Breite des Spielbretts */
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background-color: #4CAF50; /* Grüne Kartenrückseite */
+            color: white;
+            border-radius: 8px;
+            aspect-ratio: 3 / 2; /* Seitenverhältnis für die Karten */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1em; /* Anpassbare Schriftgröße */
+            cursor: pointer;
+            perspective: 1000px; /* Für den 3D-Flip-Effekt */
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .card.flipped, .card.matched {
+            transform: rotateY(180deg);
+            background-color: #fff; /* Weiße Kartenvorderseite */
+            color: #333;
+        }
+
+        .card .card-content {
+            display: none; /* Inhalt standardmäßig versteckt */
+            transform: rotateY(180deg); /* Inhalt korrekt orientieren */
+            padding: 10px;
+            text-align: center;
+        }
+
+        .card.flipped .card-content, .card.matched .card-content {
+            display: flex; /* Inhalt auf aufgedeckter Karte zeigen */
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        
+        .card.matched {
+            background-color: #d4edda; /* Leicht grüner Hintergrund für gematchte Karten */
+            color: #155724;
+            cursor: default;
+        }
+
+        #info-panel {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            max-width: 600px;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        #attempts-count {
+            font-weight: bold;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Responsive Anpassungen */
+        @media (max-width: 600px) {
+            #game-board {
+                grid-template-columns: repeat(3, 1fr); /* 3 Karten pro Reihe für kleinere Bildschirme */
+            }
+            .card {
+                font-size: 0.9em;
+            }
+        }
+        @media (max-width: 400px) {
+            #game-board {
+                grid-template-columns: repeat(2, 1fr); /* 2 Karten pro Reihe für sehr kleine Bildschirme */
+            }
+             .card {
+                font-size: 0.8em;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Flächenberechnung Memory</h1>
+
+    <div id="info-panel">
+        <span>Versuche: <span id="attempts-count">0</span></span>
+        <span id="matched-pairs-count">Paare gefunden: 0 / 0</span>
+    </div>
+
+    <div id="game-board">
+        <!-- Karten werden hier per JavaScript eingefügt -->
+    </div>
+
+    <button id="reset-button">Spiel Neustarten</button>
+
+    <script>
+        const gameBoard = document.getElementById('game-board');
+        const attemptsCountDisplay = document.getElementById('attempts-count');
+        const matchedPairsDisplay = document.getElementById('matched-pairs-count');
+        const resetButton = document.getElementById('reset-button');
+
+        const cardData = [
+            { type: 'form', content: 'Rechteck', matchId: 1 },
+            { type: 'formel', content: 'A = a ⋅ b', matchId: 1 },
+            { type: 'form', content: 'Quadrat', matchId: 2 },
+            { type: 'formel', content: 'A = a²', matchId: 2 },
+            { type: 'form', content: 'Dreieck', matchId: 3 },
+            { type: 'formel', content: 'A = (g ⋅ h) / 2', matchId: 3 },
+            { type: 'form', content: 'Kreis', matchId: 4 },
+            { type: 'formel', content: 'A = π ⋅ r²', matchId: 4 },
+            { type: 'form', content: 'Parallelogramm', matchId: 5 },
+            { type: 'formel', content: 'A = g ⋅ h', matchId: 5 },
+            { type: 'form', content: 'Trapez', matchId: 6 },
+            { type: 'formel', content: 'A = ((a + c) / 2) ⋅ h', matchId: 6 },
+            // Füge hier mehr Paare hinzu, wenn gewünscht
+            // { type: 'form', content: 'Raute', matchId: 7 },
+            // { type: 'formel', content: 'A = (e ⋅ f) / 2', matchId: 7 },
+        ];
+
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let attempts = 0;
+        let lockBoard = false; // Verhindert das Umdrehen von mehr als 2 Karten
+        let totalPairs = cardData.length / 2;
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createBoard() {
+            gameBoard.innerHTML = ''; // Board leeren
+            shuffle(cardData);
+            matchedPairsDisplay.textContent = `Paare gefunden: 0 / ${totalPairs}`;
+
+
+            cardData.forEach(item => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.matchId = item.matchId;
+                card.dataset.type = item.type; // optional, aber kann nützlich sein
+
+                // Die Rückseite (z.B. Fragezeichen oder Logo)
+                // Hier leer, da der Hintergrund der Karte die Rückseite ist
+
+                // Die Vorderseite mit dem Inhalt
+                const cardContent = document.createElement('div');
+                cardContent.classList.add('card-content');
+                cardContent.innerHTML = item.content; // HTML-Inhalt erlauben für π, ² etc.
+                card.appendChild(cardContent);
+                
+                card.addEventListener('click', flipCard);
+                gameBoard.appendChild(card);
+            });
+        }
+
+        function flipCard() {
+            if (lockBoard) return;
+            if (this === flippedCards[0]) return; // Verhindert Doppelklick auf dieselbe Karte
+            if (this.classList.contains('matched')) return; // Bereits gematchte Karten nicht umdrehen
+
+            this.classList.add('flipped');
+            
+            // Verstecke den "leeren" Bereich und zeige den Inhalt
+            // Dies wird jetzt hauptsächlich über CSS gesteuert (.card.flipped .card-content)
+
+            flippedCards.push(this);
+
+            if (flippedCards.length === 2) {
+                lockBoard = true; // Board sperren, während Paare geprüft werden
+                attempts++;
+                attemptsCountDisplay.textContent = attempts;
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.dataset.matchId === card2.dataset.matchId;
+
+            if (isMatch) {
+                disableCards();
+            } else {
+                unflipCards();
+            }
+        }
+
+        function disableCards() {
+            flippedCards.forEach(card => {
+                card.classList.add('matched');
+                // card.removeEventListener('click', flipCard); // Nicht mehr nötig, da .matched-Klasse Klicks verhindert
+            });
+            matchedPairs++;
+            matchedPairsDisplay.textContent = `Paare gefunden: ${matchedPairs} / ${totalPairs}`;
+            resetFlippedCards();
+            if (matchedPairs === totalPairs) {
+                setTimeout(() => alert(`Glückwunsch! Du hast alle ${totalPairs} Paare in ${attempts} Versuchen gefunden!`), 500);
+            }
+        }
+
+        function unflipCards() {
+            setTimeout(() => {
+                flippedCards.forEach(card => {
+                    card.classList.remove('flipped');
+                });
+                resetFlippedCards();
+            }, 1000); // 1 Sekunde warten, bevor Karten zurückgedreht werden
+        }
+
+        function resetFlippedCards() {
+            flippedCards = [];
+            lockBoard = false;
+        }
+
+        function resetGame() {
+            flippedCards = [];
+            matchedPairs = 0;
+            attempts = 0;
+            lockBoard = false;
+            attemptsCountDisplay.textContent = attempts;
+            totalPairs = cardData.length / 2; // Erneut berechnen, falls Kartendaten geändert wurden
+            createBoard();
+        }
+
+        resetButton.addEventListener('click', resetGame);
+
+        // Spiel initialisieren
+        createBoard();
+    </script>
+</body>
+</html>

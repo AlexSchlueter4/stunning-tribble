@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lineare Funktionen Memory</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif; /* System-Schriftarten */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        #game-controls {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #score {
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        #reset-button {
+            padding: 10px 15px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        #reset-button:hover {
+            background-color: #0056b3;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 Karten pro Reihe */
+            gap: 10px;
+            perspective: 1000px; /* Für den 3D-Effekt beim Umdrehen */
+        }
+
+        .card {
+            width: 150px;
+            height: 150px;
+            background-color: #ddd;
+            border: 2px solid #333;
+            border-radius: 10px;
+            cursor: pointer;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card.matched {
+            border-color: #28a745; /* Grüne Umrandung für gefundene Paare */
+            cursor: default;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Versteckt die Rückseite beim Umdrehen */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.9em; /* Angepasste Schriftgröße für Karteninhalt */
+            padding: 5px;
+            box-sizing: border-box;
+            border-radius: 8px; /* Damit der Radius auch innen gilt */
+        }
+
+        .card-front {
+            background-color: #fff;
+            color: #333;
+            transform: rotateY(180deg); /* Vorderseite ist initial "hinten" */
+        }
+
+        .card-front svg {
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .card-back {
+            background-color: #007bff;
+            color: white;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        /* Responsive Anpassungen */
+        @media (max-width: 700px) {
+            #game-board {
+                grid-template-columns: repeat(3, 1fr); /* 3 Karten pro Reihe auf kleineren Bildschirmen */
+            }
+            .card {
+                width: 120px;
+                height: 120px;
+            }
+        }
+        @media (max-width: 450px) {
+            #game-board {
+                grid-template-columns: repeat(2, 1fr); /* 2 Karten pro Reihe auf sehr kleinen Bildschirmen */
+            }
+            .card {
+                width: 100px;
+                height: 100px;
+            }
+             .card-face {
+                font-size: 0.8em;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Lineare Funktionen Memory</h1>
+
+    <div id="game-controls">
+        <div id="score">Punkte: 0</div>
+        <button id="reset-button">Neu Starten</button>
+    </div>
+
+    <div id="game-board">
+        <!-- Karten werden hier per JavaScript eingefügt -->
+    </div>
+
+    <script>
+        const gameBoard = document.getElementById('game-board');
+        const scoreDisplay = document.getElementById('score');
+        const resetButton = document.getElementById('reset-button');
+
+        // Definition der Paare: Funktionsterm und SVG-Code für den Graphen
+        const functionPairs = [
+            {
+                id: 1,
+                type: 'function',
+                content: 'f(x) = x'
+            },
+            {
+                id: 1,
+                type: 'graph',
+                content: `
+                    <svg viewBox="-5 -5 10 10" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="-5" y1="0" x2="5" y2="0" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="0" y1="-5" x2="0" y2="5" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="-4" y1="-4" x2="4" y2="4" stroke="blue" stroke-width="0.5"/>
+                    </svg>
+                `
+            },
+            {
+                id: 2,
+                type: 'function',
+                content: 'f(x) = -x + 1'
+            },
+            {
+                id: 2,
+                type: 'graph',
+                content: `
+                    <svg viewBox="-5 -5 10 10" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="-5" y1="0" x2="5" y2="0" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="0" y1="-5" x2="0" y2="5" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="-3" y1="4" x2="4" y2="-3" stroke="red" stroke-width="0.5"/>
+                    </svg>
+                `
+            },
+            {
+                id: 3,
+                type: 'function',
+                content: 'f(x) = 2'
+            },
+            {
+                id: 3,
+                type: 'graph',
+                content: `
+                    <svg viewBox="-5 -5 10 10" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="-5" y1="0" x2="5" y2="0" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="0" y1="-5" x2="0" y2="5" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="-4" y1="2" x2="4" y2="2" stroke="green" stroke-width="0.5"/>
+                    </svg>
+                `
+            },
+            {
+                id: 4,
+                type: 'function',
+                content: 'f(x) = 0.5x - 1'
+            },
+            {
+                id: 4,
+                type: 'graph',
+                content: `
+                    <svg viewBox="-5 -5 10 10" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="-5" y1="0" x2="5" y2="0" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="0" y1="-5" x2="0" y2="5" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="-4" y1="-3" x2="4" y2="1" stroke="purple" stroke-width="0.5"/>
+                    </svg>
+                `
+            },
+            {
+                id: 5,
+                type: 'function',
+                content: 'f(x) = -2x'
+            },
+            {
+                id: 5,
+                type: 'graph',
+                content: `
+                    <svg viewBox="-5 -5 10 10" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="-5" y1="0" x2="5" y2="0" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="0" y1="-5" x2="0" y2="5" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="-2" y1="4" x2="2" y2="-4" stroke="orange" stroke-width="0.5"/>
+                    </svg>
+                `
+            },
+            {
+                id: 6,
+                type: 'function',
+                content: 'f(x) = x - 2'
+            },
+            {
+                id: 6,
+                type: 'graph',
+                content: `
+                    <svg viewBox="-5 -5 10 10" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="-5" y1="0" x2="5" y2="0" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="0" y1="-5" x2="0" y2="5" stroke="#ccc" stroke-width="0.2"/>
+                        <line x1="-2" y1="-4" x2="4" y2="2" stroke="teal" stroke-width="0.5"/>
+                    </svg>
+                `
+            }
+        ];
+
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let score = 0;
+        let canFlip = true; // Verhindert schnelles Klicken während des Zurückdrehens
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createCardElement(item) {
+            const card = document.createElement('div');
+            card.classList.add('card');
+            card.dataset.id = item.id;
+            card.dataset.type = item.type;
+
+            const cardFront = document.createElement('div');
+            cardFront.classList.add('card-face', 'card-front');
+            if (item.type === 'graph') {
+                cardFront.innerHTML = item.content; // SVG einfügen
+            } else {
+                cardFront.textContent = item.content; // Text für Funktionsterm
+            }
+
+            const cardBack = document.createElement('div');
+            cardBack.classList.add('card-face', 'card-back');
+            cardBack.textContent = '?'; // Rückseite der Karte
+
+            card.appendChild(cardFront);
+            card.appendChild(cardBack);
+
+            card.addEventListener('click', () => flipCard(card));
+            return card;
+        }
+
+        function flipCard(card) {
+            if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) {
+                return;
+            }
+
+            card.classList.add('flipped');
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                canFlip = false; // Sperre weitere Klicks, bis Überprüfung abgeschlossen
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            const [card1, card2] = flippedCards;
+            const id1 = card1.dataset.id;
+            const id2 = card2.dataset.id;
+            // const type1 = card1.dataset.type; // Nicht unbedingt nötig für den Match, aber für die Logik
+            // const type2 = card2.dataset.type;
+
+            if (id1 === id2) { // Es ist ein Paar
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedPairs++;
+                score++;
+                updateScore();
+                flippedCards = [];
+                canFlip = true; // Klicks wieder erlauben
+                if (matchedPairs === functionPairs.length / 2) {
+                    setTimeout(() => alert(`Glückwunsch! Alle ${matchedPairs} Paare gefunden! Endpunktzahl: ${score}`), 500);
+                }
+            } else { // Kein Paar
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    flippedCards = [];
+                    canFlip = true; // Klicks wieder erlauben
+                }, 1000); // Warte 1 Sekunde, bevor sie zurückgedreht werden
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Punkte: ${score}`;
+        }
+        
+        function resetGame() {
+            gameBoard.innerHTML = '';
+            cards = [];
+            flippedCards = [];
+            matchedPairs = 0;
+            score = 0;
+            canFlip = true;
+            updateScore();
+            
+            const shuffledPairs = [...functionPairs];
+            shuffleArray(shuffledPairs);
+            
+            shuffledPairs.forEach(item => {
+                const cardElement = createCardElement(item);
+                cards.push(cardElement);
+                gameBoard.appendChild(cardElement);
+            });
+        }
+
+        resetButton.addEventListener('click', resetGame);
+
+        // Spiel initialisieren
+        resetGame();
+
+    </script>
+</body>
+</html>
